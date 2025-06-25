@@ -155,9 +155,9 @@ class TransformerBlock(nn.Module):
 ## Overlapped image patch embedding with 3x3 Conv
 class OverlapPatchEmbed(nn.Module):
     def __init__(self, in_c=3, embed_dim=48, bias=False):
-        super(OverlapPatchEmbed, self).__init__()
-
+        super().__init__()
         self.proj = nn.Conv2d(in_c, embed_dim, kernel_size=3, stride=1, padding=1, bias=bias)
+
 
     def forward(self, x):
         x = self.proj(x)
@@ -201,10 +201,11 @@ class Restormer(nn.Module):
         ffn_expansion_factor = 2.66,
         bias = False,
         LayerNorm_type = 'WithBias',   ## Other option 'BiasFree'
-        dual_pixel_task = True       ## True for dual-pixel defocus deblurring only. Also set inp_channels=6
+        dual_pixel_task = False       ## True for dual-pixel defocus deblurring only. Also set inp_channels=6
     ):
 
         super(Restormer, self).__init__()
+        print(f"Restormer initialized with input channels = {inp_channels}")
 
         self.patch_embed = OverlapPatchEmbed(inp_channels, dim)
 
@@ -276,10 +277,7 @@ class Restormer(nn.Module):
         if self.dual_pixel_task:
             out_dec_level1 = out_dec_level1 + self.skip_conv(inp_enc_level1)
             out_dec_level1 = self.output(out_dec_level1)
-        ###########################
         else:
             out_dec_level1 = self.output(out_dec_level1)
-
-
         return out_dec_level1
 
