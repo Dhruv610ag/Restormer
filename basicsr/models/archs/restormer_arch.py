@@ -278,7 +278,7 @@ class Restormer(nn.Module):
             out_dec_level1 = self.output(out_dec_level1)
         ###########################
         else:
-            out_dec_level1 = self.output(out_dec_level1) + inp_img
+            out_dec_level1 = self.output(out_dec_level1)
 
 
         return out_dec_level1
