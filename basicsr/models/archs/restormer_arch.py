@@ -155,9 +155,9 @@ class TransformerBlock(nn.Module):
 ## Overlapped image patch embedding with 3x3 Conv
 class OverlapPatchEmbed(nn.Module):
     def __init__(self, in_c=3, embed_dim=48, bias=False):
-        super().__init__()
-        self.proj = nn.Conv2d(in_c, embed_dim, kernel_size=3, stride=1, padding=1, bias=bias)
+        super(OverlapPatchEmbed, self).__init__()
 
+        self.proj = nn.Conv2d(in_c, embed_dim, kernel_size=3, stride=1, padding=1, bias=bias)
 
     def forward(self, x):
         x = self.proj(x)
@@ -192,21 +192,21 @@ class Upsample(nn.Module):
 ##---------- Restormer -----------------------
 class Restormer(nn.Module):
     def __init__(self, 
-        inp_channels=6, 
+        inp_channels=3, 
         out_channels=3, 
-        dim = 48,
-        num_blocks = [4,6,6,8], 
-        num_refinement_blocks = 4,
-        heads = [1,2,4,8],
-        ffn_expansion_factor = 2.66,
-        bias = False,
-        LayerNorm_type = 'WithBias',   ## Other option 'BiasFree'
-        dual_pixel_task = False       ## True for dual-pixel defocus deblurring only. Also set inp_channels=6
+        dim=48,
+        num_blocks=[4,6,6,8], 
+        num_refinement_blocks=4,
+        heads=[1,2,4,8],
+        ffn_expansion_factor=2.66,
+        bias=False,
+        LayerNorm_type='WithBias',
+        dual_pixel_task=False,
+        scale=1,  
     ):
-
         super(Restormer, self).__init__()
-        print(f"Restormer initialized with input channels = {inp_channels}")
-
+        self.scale = scale  # Store scale factor
+        
         self.patch_embed = OverlapPatchEmbed(inp_channels, dim)
 
         self.encoder_level1 = nn.Sequential(*[TransformerBlock(dim=dim, num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
@@ -239,9 +239,17 @@ class Restormer(nn.Module):
         self.dual_pixel_task = dual_pixel_task
         if self.dual_pixel_task:
             self.skip_conv = nn.Conv2d(dim, int(dim*2**1), kernel_size=1, bias=bias)
-        ###########################
-            
-        self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
+
+        # Modified Output Layer
+        if self.scale > 1:
+            self.output = nn.Sequential(
+                nn.Conv2d(int(dim*2**1), int(dim*2**1 * scale**2), kernel_size=3, padding=1, bias=bias),
+                nn.PixelShuffle(scale),
+                nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, padding=1, bias=bias)
+            )
+        else:
+            self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, padding=1, bias=bias)
+
 
     def forward(self, inp_img):
 
@@ -273,11 +281,15 @@ class Restormer(nn.Module):
         
         out_dec_level1 = self.refinement(out_dec_level1)
 
-        #### For Dual-Pixel Defocus Deblurring Task ####
         if self.dual_pixel_task:
             out_dec_level1 = out_dec_level1 + self.skip_conv(inp_enc_level1)
             out_dec_level1 = self.output(out_dec_level1)
         else:
-            out_dec_level1 = self.output(out_dec_level1)
-        return out_dec_level1
+            if self.scale > 1:
+                # SR: Output upsampled image (no residual)
+                out_dec_level1 = self.output(out_dec_level1)
+            else:
+                # Original: Residual + input
+                out_dec_level1 = self.output(out_dec_level1) + inp_img
 
+        return out_dec_level1
