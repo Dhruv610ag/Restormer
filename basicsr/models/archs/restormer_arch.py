@@ -283,10 +283,13 @@ class Restormer(nn.Module):
 
         if self.dual_pixel_task:
             out_dec_level1 = out_dec_level1 + self.skip_conv(inp_enc_level1)
-            out_dec_level1 = self.output(out_dec_level1)
+            out = self.output(out_dec_level1)
         else:
+            out = self.output(out_dec_level1)
             if self.scale > 1:
-                out_dec_level1 = self.output(out_dec_level1) + F.interpolate(inp_img, scale_factor=self.scale, mode='bicubic')
+                out = out + F.interpolate(inp_img, scale_factor=self.scale, mode='bicubic')
             else:
-                out_dec_level1 = self.output(out_dec_level1) + inp_img
-        return out_dec_level1
+                out = out + inp_img
+
+        return out
+                
