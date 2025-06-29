@@ -243,10 +243,10 @@ class Restormer(nn.Module):
         # Modified Output Layer
         if self.scale > 1:
             self.output = nn.Sequential(
-                nn.Conv2d(int(dim*2**1), int(dim*2**1 * scale**2), kernel_size=3, padding=1, bias=bias),
-                nn.PixelShuffle(scale),
-                nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, padding=1, bias=bias)
-            )
+            nn.Conv2d(int(dim*2**1), int(dim*2**1 * scale**2), kernel_size=3, padding=1, bias=bias),
+            nn.PixelShuffle(scale),
+            nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, padding=1, bias=bias)
+        )
         else:
             self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, padding=1, bias=bias)
 
@@ -286,10 +286,7 @@ class Restormer(nn.Module):
             out_dec_level1 = self.output(out_dec_level1)
         else:
             if self.scale > 1:
-                # SR: Output upsampled image (no residual)
-                out_dec_level1 = self.output(out_dec_level1)
+                out_dec_level1 = self.output(out_dec_level1) + F.interpolate(inp_img, scale_factor=self.scale, mode='bicubic')
             else:
-                # Original: Residual + input
                 out_dec_level1 = self.output(out_dec_level1) + inp_img
-
         return out_dec_level1
